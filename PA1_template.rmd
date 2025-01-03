@@ -1,0 +1,135 @@
+ ```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load the Data
+
+```{r load-data}
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+
+# Read the data
+activity <- read.csv("activity.csv")
+
+# View the structure of the data
+str(activity)
+```
+
+## Preprocessing the Data
+
+```{r preprocess-data}
+# Convert date column to Date type
+activity$date <- as.Date(activity$date, format = "%Y-%m-%d")
+
+# Display summary of the data
+summary(activity)
+```
+
+## Total Number of Steps Per Day
+
+```{r total-steps-day}
+# Calculate total steps per day
+total_steps_per_day <- activity %>%
+  group_by(date) %>%
+  summarise(total_steps = sum(steps, na.rm = TRUE))
+
+# Plot histogram
+hist(total_steps_per_day$total_steps, main = "Histogram of Total Steps Per Day", 
+     xlab = "Total Steps", col = "skyblue", border = "white")
+
+# Calculate mean and median
+mean_steps <- mean(total_steps_per_day$total_steps, na.rm = TRUE)
+median_steps <- median(total_steps_per_day$total_steps, na.rm = TRUE)
+
+# Display the results
+mean_steps
+median_steps
+```
+
+## Time Series Plot of Average Steps
+
+```{r time-series-plot}
+# Calculate average steps for each 5-minute interval
+avg_steps_interval <- activity %>%
+  group_by(interval) %>%
+  summarise(avg_steps = mean(steps, na.rm = TRUE))
+
+# Plot time series
+ggplot(avg_steps_interval, aes(x = interval, y = avg_steps)) +
+  geom_line(color = "blue") +
+  labs(title = "Average Steps per 5-Minute Interval", x = "5-Minute Interval", y = "Average Steps")
+```
+
+## Interval with Maximum Steps
+
+```{r max-steps-interval}
+# Find the interval with the maximum average steps
+max_interval <- avg_steps_interval[which.max(avg_steps_interval$avg_steps), ]
+max_interval
+```
+
+## Missing Data Analysis
+
+```{r missing-data}
+# Count total missing values
+total_missing <- sum(is.na(activity$steps))
+total_missing
+```
+
+## Impute Missing Values
+
+```{r impute-missing-values}
+# Impute missing values with the mean for the corresponding 5-minute interval
+activity_imputed <- activity
+mean_steps_per_interval <- avg_steps_interval$avg_steps
+names(mean_steps_per_interval) <- as.character(avg_steps_interval$interval)
+
+activity_imputed$steps <- ifelse(is.na(activity_imputed$steps), 
+                                 mean_steps_per_interval[as.character(activity_imputed$interval)], 
+                                 activity_imputed$steps)
+
+# Verify no missing values remain
+sum(is.na(activity_imputed$steps))
+```
+
+## Total Steps Per Day After Imputation
+
+```{r steps-after-imputation}
+# Calculate total steps per day after imputation
+total_steps_per_day_imputed <- activity_imputed %>%
+  group_by(date) %>%
+  summarise(total_steps = sum(steps))
+
+# Plot histogram
+hist(total_steps_per_day_imputed$total_steps, main = "Histogram of Total Steps Per Day (Imputed)", 
+     xlab = "Total Steps", col = "lightgreen", border = "white")
+
+# Calculate mean and median
+mean_steps_imputed <- mean(total_steps_per_day_imputed$total_steps, na.rm = TRUE)
+median_steps_imputed <- median(total_steps_per_day_imputed$total_steps, na.rm = TRUE)
+
+# Display the results
+mean_steps_imputed
+median_steps_imputed
+```
+
+## Weekday vs Weekend Analysis
+
+```{r weekday-weekend}
+# Add a new factor variable for weekday/weekend
+activity_imputed$day_type <- ifelse(weekdays(activity_imputed$date) %in% c("Saturday", "Sunday"), 
+                                    "weekend", "weekday")
+
+# Calculate average steps for each interval and day type
+avg_steps_day_type <- activity_imputed %>%
+  group_by(interval, day_type) %>%
+  summarise(avg_steps = mean(steps))
+
+# Panel plot
+ggplot(avg_steps_day_type, aes(x = interval, y = avg_steps, color = day_type)) +
+  geom_line() +
+  facet_wrap(~ day_type, ncol = 1) +
+  labs(title = "Average Steps by Interval: Weekday vs Weekend", 
+       x = "5-Minute Interval", y = "Average Steps")
+```
